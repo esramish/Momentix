@@ -8,25 +8,38 @@ using UnityEngine.UI;
 public abstract class PiecePrefabBehaviour : MonoBehaviour
 {
 
-    private const float SECONDS_TO_INITIAL_POSITION = 1;
-    private const float SECONDS_TO_PLACEMENT_CORRECT = 0.5f;
-    private const float THRESHOLD_ABOVE_FLOOR = 0.5f;
+    enum PlacementCorrectionType {
+        None,
+        SnapTo,
+        SnapUp,
+        SnapDown,
+        ReturnToInitPosition
+    }
+
     private const float SNAP_TO_PIECE_RADIUS = 2;
     private const int MAX_SNAP_TO_COLLIDERS = 10;
+    private const float SNAP_SECONDS = 0.5f; // this should be exact for SnapTo, approx for SnapDown (since getBottom isn't always quite correct), irrelevant for SnapUp
+    private const float SNAP_DOWN_DIST_THRESHOLD = 2;
+    private const float SECONDS_TO_INITIAL_POSITION = 0.5f;
+
     private bool setupComplete; // set to true once various object references are initialized. Don't set to false again after that!
     protected bool isNew; // the user hasn't stopped dragging the piece since it was instantiated
     protected bool moving; // the user is currently dragging 
+    
+    private PlacementCorrectionType currPlacementCorrection; // the way, if any, in which the piece is currently having its placement auto-corrected
+
     private Vector3 initialPosition; // the location where the piece was on the most recent touch begin, if the piece is currently moving
-    private bool returningToInitialPosition; // the piece is currently returning to initialPosition
-    private Vector3 initialPositionReturnFrameTranslation; // the vector the piece moves in a single update call when returningToInitialPosition == true
+    private Vector3 initialPositionReturnFrameTranslation; // the vector the piece moves in a single update call when currPlacementCorrection == PlacementCorrectionType.ReturnToInitPosition
     private float initialPositionReturnTotalFrames; // the number of times Update will be called in the time it takes the piece to return to initialPosition. Calculated at runtime directly based on SECONDS_TO_INITIAL_POSITION
     private int initialPositionReturnFramesCompleted; // the number of times Update has been called so far since the piece started returning to initialPosition, if it's currently doing so
     
-    private Vector3 placementCorrectionTarget; // the target location for the piece's placement auto-correction
-    private bool placementCorrecting; // the piece is currently having its placement auto-corrected
-    private Vector3 placementCorrectionFrameTranslation; // the vector the piece moves in a single update call when placementCorrecting == true
-    private float placementCorrectionTotalFrames; // the number of times Update will be called in the time it takes to auto-correct the piece's placement. Calculated at runtime directly based on SECONDS_TO_PLACEMENT_CORRECT
+    
+    private Vector3 placementCorrectionTarget; // the target location for the piece's placement auto-correction    
+    private Vector3 placementCorrectionFrameTranslation; // the vector the piece moves in a single update call when currPlacementCorrection == PlacementCorrectionType.SnapTo/SnapDown
+    private float placementCorrectionTotalFrames; // the number of times Update will be called in the time it takes to auto-correct the piece's placement. Calculated at runtime directly based on SNAP_SECONDS
     private int placementCorrectionFramesCompleted; // the number of times Update has been called so far since the piece started having its placement corrected, if it's currently doing so
+
+    private Collider snapDownCollider; // the collider directly below the piece, if the piece is snapping down
     
     public bool canMoveDown;
     public bool canMoveTowardsNegX;
@@ -54,8 +67,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
     {
         // initialize instance variables
         isNew = true;
-        returningToInitialPosition = false;
-        placementCorrecting = false;
+        currPlacementCorrection = PlacementCorrectionType.None;
         canMoveDown = true;
         canMoveTowardsNegX = true;
         canMoveTowardsPosX = true;
@@ -117,7 +129,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
 
     void Update()
     {
-        if(returningToInitialPosition){
+        if(currPlacementCorrection == PlacementCorrectionType.ReturnToInitPosition){
             if(initialPositionReturnFramesCompleted < initialPositionReturnTotalFrames){
                 transform.Translate(initialPositionReturnFrameTranslation, Space.World);
                 initialPositionReturnFramesCompleted++;
@@ -127,18 +139,30 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
                     raycastingScript.ClearActivePiece();
                 }else{
                     transform.position = initialPosition;
-                    returningToInitialPosition = false;
+                    currPlacementCorrection = PlacementCorrectionType.None;
                 }
                 reactivateInteractables();
             }
-        }else if(placementCorrecting){
+        }else if(currPlacementCorrection == PlacementCorrectionType.SnapTo){
             if(placementCorrectionFramesCompleted < placementCorrectionTotalFrames){
                 transform.Translate(placementCorrectionFrameTranslation, Space.World);
                 placementCorrectionFramesCompleted++;
             }else{
-                placementCorrecting = false;
+                currPlacementCorrection = PlacementCorrectionType.None;
                 transform.position = placementCorrectionTarget;
                 initialPosition = placementCorrectionTarget;
+                if(isNew){
+                    isNew = false;
+                    pieces.Add(gameObject);
+                }
+                reactivateInteractables();
+            }
+        }else if(currPlacementCorrection == PlacementCorrectionType.SnapDown){
+            transform.Translate(placementCorrectionFrameTranslation);
+            if(Intersects(gameObject, snapDownCollider.bounds)){ // we've hit the piece below this one
+                transform.Translate(-placementCorrectionFrameTranslation); // move back up a notch, so they're not actually overlapping
+                currPlacementCorrection = PlacementCorrectionType.None;
+                initialPosition = transform.position;
                 if(isNew){
                     isNew = false;
                     pieces.Add(gameObject);
@@ -149,17 +173,26 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             Touch touch = Input.GetTouch(0);
             if(touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled){
                 moving = false;
-                bool validPlacement = calculatePlacementCorrectionTarget();
-                if(validPlacement){ // the piece was placed in a valid location
-                    placementCorrectionTotalFrames = SECONDS_TO_PLACEMENT_CORRECT / Time.deltaTime;
-                    placementCorrectionFramesCompleted = 0;
-                    placementCorrectionFrameTranslation = (placementCorrectionTarget - transform.position) / placementCorrectionTotalFrames;
-                    placementCorrecting = true;
-                }else{ // the piece was placed in an invalid location
-                    initialPositionReturnTotalFrames = SECONDS_TO_INITIAL_POSITION / Time.deltaTime;
-                    initialPositionReturnFramesCompleted = 0;
-                    initialPositionReturnFrameTranslation = (initialPosition - transform.position) / initialPositionReturnTotalFrames;
-                    returningToInitialPosition = true;
+                PlacementCorrectionType availablePlacementCorrection = calculatePlacementCorrectionTarget();
+                switch(availablePlacementCorrection){
+                    case PlacementCorrectionType.SnapTo:
+                        placementCorrectionTotalFrames = SNAP_SECONDS / Time.deltaTime;
+                        placementCorrectionFramesCompleted = 0;
+                        placementCorrectionFrameTranslation = (placementCorrectionTarget - transform.position) / placementCorrectionTotalFrames;
+                        currPlacementCorrection = PlacementCorrectionType.SnapTo;
+                        break;
+                    case PlacementCorrectionType.SnapUp:
+                        break;
+                    case PlacementCorrectionType.SnapDown:
+                        placementCorrectionFrameTranslation = (placementCorrectionTarget - new Vector3(transform.position.x, getBottom(), transform.position.z)) * Time.deltaTime / SNAP_SECONDS;
+                        currPlacementCorrection = PlacementCorrectionType.SnapDown;
+                        break;
+                    default: // piece was placed in an invalid location
+                        initialPositionReturnTotalFrames = SECONDS_TO_INITIAL_POSITION / Time.deltaTime;
+                        initialPositionReturnFramesCompleted = 0;
+                        initialPositionReturnFrameTranslation = (initialPosition - transform.position) / initialPositionReturnTotalFrames;
+                        currPlacementCorrection = PlacementCorrectionType.ReturnToInitPosition;
+                        break;
                 }
             }else if(touch.phase == TouchPhase.Moved){
                 movePiece(touch.position);
@@ -172,10 +205,10 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
         raycastingScript.SetAllButtonsInteractable(true);
     }
 
-    // This method calculates a Vector3 representing the nearest valid target position, if there is one nearby, for placement auto-correction.
+    // This method calculates a Vector3 representing the nearest valid snap-to target position, if there is one nearby, for placement auto-correction.
     // It then assigns that value (if it exists) to the corresponding instance variable, placementCorrectionTarget.
-    // It returns a boolean representing whether or not it successfully calculated a nearby valid target position
-    private bool calculatePlacementCorrectionTarget(){
+    // It returns a PlacementCorrectionType representing the best placement correction type available (this will be PlacementCorrectionType.SnapTo is a target position was successfully calculated)
+    private PlacementCorrectionType calculatePlacementCorrectionTarget(){
         
         // detect up to MAX_SNAP_TO_COLLIDERS nearby snap-to objects that are relevant to this specific piece
         Collider[] colliders = new Collider[MAX_SNAP_TO_COLLIDERS];
@@ -195,14 +228,42 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             
             // Use its position as the target
             placementCorrectionTarget = closestCollider.gameObject.transform.position;
-            return true;
-        }else if(getBottom() - floorY < THRESHOLD_ABOVE_FLOOR){
-            // the piece is close to the floor, so its target is the spot on the floor directly below it
-            placementCorrectionTarget = new Vector3(transform.position.x, convertBottomToTransformY(floorY), transform.position.z);
-            return true;
+            return PlacementCorrectionType.SnapTo;
         }
         
-        // it's not close enough to any valid placement correction targets, so return false to indicate invalid placement
+        // Okay, there are no designated placement correction targets for this piece nearby. So next try: is it inside another piece? If so, snap up
+        
+
+        // Okay, it isn't inside a piece either. So is it close enough to whatever's directly below it? If so, snap down
+        int layerMask = 1;
+        RaycastHit hit;
+        Vector3 raycastOrigin = new Vector3(transform.position.x, getBottom(), transform.position.z);
+        if (Physics.Raycast(raycastOrigin, Vector3.down, out hit, SNAP_DOWN_DIST_THRESHOLD, layerMask)){
+            snapDownCollider = hit.collider;
+            placementCorrectionTarget = hit.point;
+            return PlacementCorrectionType.SnapDown;
+        }
+        
+        // it's not close enough to any valid placement correction targets, other pieces (vertically), or the ground, so return PlacementCorrectionType.none to indicate invalid placement
+        return PlacementCorrectionType.None;
+    }
+
+    // Return a bool representing whether or not any descendent GameObject of parent (or parent itself) has a Renderer that intersects bounds
+    private bool Intersects(GameObject parent, Bounds bounds){
+        
+        // check parent
+        Renderer renderer = parent.GetComponent<Renderer>();
+        if(renderer != null && renderer.bounds.Intersects(bounds)){
+            return true;
+        }
+
+        // check children
+        foreach(Transform child in parent.transform){
+            if(Intersects(child.gameObject, bounds)){
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -293,12 +354,8 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
         return moving;
     }
 
-    public bool isReturningToInitialPosition(){
-        return returningToInitialPosition;
-    }
-
     public bool isPlacementCorrecting(){
-        return placementCorrecting;
+        return currPlacementCorrection != PlacementCorrectionType.None;
     }
 
     // A class for storing the primitive-like aspects of transforms so pieces can be reset later to those positions and rotations

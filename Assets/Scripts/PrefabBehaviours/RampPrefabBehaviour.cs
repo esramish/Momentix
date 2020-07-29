@@ -39,6 +39,18 @@ public class RampPrefabBehaviour : PiecePrefabBehaviour
 
     public override void setKinematic(bool kinematic){
         gameObject.GetComponent<Rigidbody>().isKinematic = kinematic;
+        processParentTrigger(gameObject, kinematic);
+    }
+
+    // recursive helper function that toggles isTrigger for the given GameObject (parent), if it has a Collider, and then calls itself on each child of that object
+    private void processParentTrigger(GameObject parent, bool kinematic){
+        Collider col = parent.GetComponent<Collider>();
+        if(col != null && parent.layer == 0){ // only toggle isTrigger for the default layer
+            col.isTrigger = kinematic;
+        }
+        foreach(Transform child_trans in parent.transform){
+            processParentTrigger(child_trans.gameObject, kinematic);
+        }
     }
 
     public override Behaviour getHalo(){

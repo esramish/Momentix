@@ -66,7 +66,7 @@ public class StartStopButtonBehaviour : MonoBehaviour
         // turn off visibility of pieces scroll view, since we don't want to allow user to add pieces before resetting
         piecesScrollView.SetActive(false);
         
-        // toggle isKinematic for all pieces
+        // toggle isKinematic and isTrigger for all pieces
         foreach(GameObject piece in raycastingScript.pieces){
             PiecePrefabBehaviour pieceScript = piece.GetComponent<PiecePrefabBehaviour>();
             pieceScript.setKinematic(!physicsOn);

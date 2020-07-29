@@ -29,7 +29,7 @@ public class PieceSourceBehaviour : MonoBehaviour, IPointerDownHandler
 
         if(raycastingScript.activePiece != null){
             PiecePrefabBehaviour activePieceBehaviour = raycastingScript.activePiece.GetComponent<PiecePrefabBehaviour>();
-            if(activePieceBehaviour.isMoving() || activePieceBehaviour.isReturningToInitialPosition() || activePieceBehaviour.isPlacementCorrecting()){
+            if(activePieceBehaviour.isMoving() || activePieceBehaviour.isPlacementCorrecting()){
                 return;
             }
         }

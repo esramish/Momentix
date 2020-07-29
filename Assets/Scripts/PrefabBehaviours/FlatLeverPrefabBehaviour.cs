@@ -54,11 +54,15 @@ public class FlatLeverPrefabBehaviour : PiecePrefabBehaviour
         processParentKinematic(gameObject, kinematic);
     }
 
-    // recursive helper function that toggles isKinematic for the given GameObject (parent), if it has a Rigidbody, and then calls itself on each child of that object
+    // recursive helper function that toggles isKinematic and isTrigger for the given GameObject (parent), if it has a Rigidbody or Collider respectively, and then calls itself on each child of that object
     private void processParentKinematic(GameObject parent, bool kinematic){
         Rigidbody rb = parent.GetComponent<Rigidbody>();
         if(rb != null){
             rb.isKinematic = kinematic;
+        }
+        Collider col = parent.GetComponent<Collider>();
+        if(col != null && parent.layer == 0){ // only toggle isTrigger for the default layer
+            col.isTrigger = kinematic;
         }
         foreach(Transform child_trans in parent.transform){
             processParentKinematic(child_trans.gameObject, kinematic);

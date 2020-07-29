@@ -36,6 +36,7 @@ public class One_3_5_DominoPrefabBehaviour : PiecePrefabBehaviour
 
     public override void setKinematic(bool kinematic){
         gameObject.GetComponent<Rigidbody>().isKinematic = kinematic;
+        gameObject.GetComponent<Collider>().isTrigger = kinematic;
     }
 
     public override Behaviour getHalo(){
