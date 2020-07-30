@@ -39,8 +39,6 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
     private Vector3 placementCorrectionFrameTranslation; // the vector the piece moves in a single update call when currPlacementCorrection == PlacementCorrectionType.SnapTo/SnapDown
     private float placementCorrectionTotalFrames; // the number of times Update will be called in the time it takes to auto-correct the piece's placement. Calculated at runtime directly based on SNAP_SECONDS
     private int placementCorrectionFramesCompleted; // the number of times Update has been called so far since the piece started having its placement corrected, if it's currently doing so
-
-    private Collider snapDownCollider; // the collider directly below the piece, if the piece is snapping down
     
     public List<Collider> collidersInContact; // colliders which have fired OnTriggerEnter regarding this piece but not yet OnTriggerExit, meaning the piece must leave them before placement correction is complete
 
@@ -168,7 +166,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             }
         }else if(currPlacementCorrection == PlacementCorrectionType.SnapDown){
             transform.Translate(placementCorrectionFrameTranslation);
-            if(/*Intersects(gameObject, snapDownCollider.bounds) || */getBottom() < floorY || collidersInContact.Count() > 0){ // we've hit the piece below this one, or the floor
+            if(getBottom() < floorY || collidersInContact.Count > 0){ // we've hit the piece below this one, or the floor
                 transform.Translate(-placementCorrectionFrameTranslation); // move back up a notch, so they're not actually overlapping
                 currPlacementCorrection = PlacementCorrectionType.None;
                 initialPosition = transform.position;
@@ -256,7 +254,6 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
         RaycastHit hit;
         Vector3 raycastOrigin = new Vector3(transform.position.x, getBottom(), transform.position.z);
         if (Physics.Raycast(raycastOrigin, Vector3.down, out hit, SNAP_DOWN_DIST_THRESHOLD, layerMask)){
-            snapDownCollider = hit.collider;
             placementCorrectionTarget = hit.point;
             return PlacementCorrectionType.SnapDown;
         }
