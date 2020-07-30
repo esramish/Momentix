@@ -105,9 +105,10 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             Start();
         }
 
-        // mark the currently occupied snap-to target GameObject, if there is one, as unoccupied
+        // mark the currently occupied snap-to target GameObject, if there is one, as unoccupied, and set that instance variable to null
         if (currOccupiedSnapToTarget != null){
             currOccupiedSnapToTarget.GetComponent<SnapToTargetBehaviour>().occupied = false;
+            currOccupiedSnapToTarget = null;
         }
         
         // set initialPosition so that the piece can later revert to it if placed in an invalid position
