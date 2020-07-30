@@ -188,8 +188,6 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
                         placementCorrectionFrameTranslation = (placementCorrectionTarget - transform.position) / placementCorrectionTotalFrames;
                         currPlacementCorrection = PlacementCorrectionType.SnapTo;
                         break;
-                    case PlacementCorrectionType.SnapUp:
-                        break;
                     case PlacementCorrectionType.SnapDown:
                         placementCorrectionFrameTranslation = (placementCorrectionTarget - new Vector3(transform.position.x, getBottom(), transform.position.z)) * Time.deltaTime / SNAP_SECONDS;
                         currPlacementCorrection = PlacementCorrectionType.SnapDown;
@@ -246,8 +244,10 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             // if we reach here, all of the detected colliders were occupied, so continue on in the placement correction options
         }
         
-        // Okay, there are no designated placement correction targets for this piece nearby. So next try: is it inside another piece? If so, snap up
-        
+        // Okay, there are no unoccupied, designated placement correction targets for this piece nearby. So next try: is it inside another piece? If so, return it to its initial spot, given the invalid placement
+        if(collidersInContact.Count > 0){
+            return PlacementCorrectionType.ReturnToInitPosition;
+        }
 
         // Okay, it isn't inside a piece either. So is it close enough to whatever's directly below it? If so, snap down
         int layerMask = 1;
@@ -258,27 +258,8 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             return PlacementCorrectionType.SnapDown;
         }
         
-        // it's not close enough to any valid placement correction targets, other pieces (vertically), or the ground, so return PlacementCorrectionType.none to indicate invalid placement
-        return PlacementCorrectionType.None;
-    }
-
-    // Return a bool representing whether or not any descendent GameObject of parent (or parent itself) has a Renderer that intersects bounds
-    private bool Intersects(GameObject parent, Bounds bounds){
-        
-        // check parent
-        Renderer renderer = parent.GetComponent<Renderer>();
-        if(renderer != null && renderer.bounds.Intersects(bounds)){
-            return true;
-        }
-
-        // check children
-        foreach(Transform child in parent.transform){
-            if(Intersects(child.gameObject, bounds)){
-                return true;
-            }
-        }
-
-        return false;
+        // it's not close enough to any valid placement correction targets, other pieces (vertically), or the ground, so return PlacementCorrectionType.ReturnToInitPosition to indicate invalid placement
+        return PlacementCorrectionType.ReturnToInitPosition;
     }
 
     protected abstract void pieceSpecificSetup();
