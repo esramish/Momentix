@@ -11,14 +11,13 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
     enum PlacementCorrectionType {
         None,
         SnapTo,
-        SnapUp,
         SnapDown,
         ReturnToInitPosition
     }
 
     private const float SNAP_TO_PIECE_RADIUS = 2;
     private const int MAX_SNAP_TO_COLLIDERS = 10;
-    private const float SNAP_SECONDS = 0.5f; // this should be exact for SnapTo, approx for SnapDown (since getBottom isn't always quite correct), irrelevant for SnapUp
+    private const float SNAP_SECONDS = 0.5f; // this should be exact for SnapTo, approx for SnapDown (since getBottom isn't always quite correct)
     private const float SNAP_DOWN_DIST_THRESHOLD = 2;
     private const float SECONDS_TO_INITIAL_POSITION = 0.5f;
 
@@ -182,7 +181,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
                 moving = false;
                 PlacementCorrectionType availablePlacementCorrection = calculatePlacementCorrectionTarget();
                 switch(availablePlacementCorrection){
-                    case PlacementCorrectionType.SnapTo:
+                    case PlacementCorrectionType.SnapTo: // includes snapping to a designated target and snapping up out of the floor
                         placementCorrectionTotalFrames = SNAP_SECONDS / Time.deltaTime;
                         placementCorrectionFramesCompleted = 0;
                         placementCorrectionFrameTranslation = (placementCorrectionTarget - transform.position) / placementCorrectionTotalFrames;
@@ -212,7 +211,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
 
     // This method calculates a Vector3 representing the nearest valid snap-to target position, if there is one nearby, for placement auto-correction.
     // It then assigns that value (if it exists) to the corresponding instance variable, placementCorrectionTarget.
-    // It returns a PlacementCorrectionType representing the best placement correction type available (this will be PlacementCorrectionType.SnapTo is a target position was successfully calculated)
+    // It returns a PlacementCorrectionType representing the best placement correction type available (this will be PlacementCorrectionType.SnapTo if a target position was successfully calculated)
     private PlacementCorrectionType calculatePlacementCorrectionTarget(){
         
         // detect up to MAX_SNAP_TO_COLLIDERS nearby snap-to objects that are relevant to this specific piece
@@ -257,8 +256,14 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             placementCorrectionTarget = hit.point;
             return PlacementCorrectionType.SnapDown;
         }
+
+        // Okay, there's nothing close below the piece. Is its bottom lower than the floor? If so, snap up to the floor
+        if (getBottom() < floorY){
+            placementCorrectionTarget = new Vector3(transform.position.x, convertBottomToTransformY(floorY), transform.position.z);
+            return PlacementCorrectionType.SnapTo;
+        }
         
-        // it's not close enough to any valid placement correction targets, other pieces (vertically), or the ground, so return PlacementCorrectionType.ReturnToInitPosition to indicate invalid placement
+        // it's not close enough to any valid placement correction targets, other pieces (vertically), or the floor, so return PlacementCorrectionType.ReturnToInitPosition to indicate invalid placement
         return PlacementCorrectionType.ReturnToInitPosition;
     }
 
