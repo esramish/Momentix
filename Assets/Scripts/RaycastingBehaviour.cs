@@ -88,13 +88,14 @@ public class RaycastingBehaviour : MonoBehaviour
         }
     }
 
-    // this method removes the active piece's halo (if there is an active piece), sets the activePiece variable to null, and changes the state of canvas objects
+    // this method removes the active piece's halo (if there is an active piece), changes its colliders to triggers, sets the activePiece variable to null, and changes the state of canvas objects
     // this method does NOT remove a piece, but it does check if there are any pieces remaining (and deactivates the piece controls panel, etc. if there aren't)
     // it is fine to call this method in this or another class
     public void ClearActivePiece(){
         if(activePiece != null){
             Behaviour halo = activePiece.GetComponent<PiecePrefabBehaviour>().getHalo() as Behaviour;
             halo.enabled = false;
+            activePiece.GetComponent<PiecePrefabBehaviour>().setTriggers(true);
             activePiece = null;
         }
         if(pieceControlsPanel.activeInHierarchy){

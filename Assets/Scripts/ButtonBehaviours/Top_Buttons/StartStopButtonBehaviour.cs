@@ -70,6 +70,7 @@ public class StartStopButtonBehaviour : MonoBehaviour
         foreach(GameObject piece in raycastingScript.pieces){
             PiecePrefabBehaviour pieceScript = piece.GetComponent<PiecePrefabBehaviour>();
             pieceScript.setKinematic(!physicsOn);
+            pieceScript.setTriggers(!physicsOn); // needs to be after the ClearActivePiece call
         }
 
         // toggle isTrigger for all workspace boundary colliders 

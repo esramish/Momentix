@@ -23,6 +23,12 @@ public class PieceRemoveButtonBehaviour : MonoBehaviour
     }
 
     public void removeActivePiece(){
+        // mark the piece's currently occupied snap-to target GameObject, if there is one, as unoccupied
+        GameObject target = raycastingScript.activePiece.GetComponent<PiecePrefabBehaviour>().currOccupiedSnapToTarget;
+        if(target != null){
+            target.GetComponent<SnapToTargetBehaviour>().occupied = false;
+        }
+
         if(resetButtonScript.getResettable()){
             raycastingScript.piecesRemovedWhileResettable.Add(raycastingScript.activePiece);
             raycastingScript.activePiece.SetActive(false);

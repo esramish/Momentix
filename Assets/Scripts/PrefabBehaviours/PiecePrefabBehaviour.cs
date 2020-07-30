@@ -34,6 +34,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
     private int initialPositionReturnFramesCompleted; // the number of times Update has been called so far since the piece started returning to initialPosition, if it's currently doing so
     
     
+    public GameObject currOccupiedSnapToTarget; // the empty GameObject at the snap-to location the piece is currently occupying
     private Vector3 placementCorrectionTarget; // the target location for the piece's placement auto-correction    
     private Vector3 placementCorrectionFrameTranslation; // the vector the piece moves in a single update call when currPlacementCorrection == PlacementCorrectionType.SnapTo/SnapDown
     private float placementCorrectionTotalFrames; // the number of times Update will be called in the time it takes to auto-correct the piece's placement. Calculated at runtime directly based on SNAP_SECONDS
@@ -41,6 +42,8 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
 
     private Collider snapDownCollider; // the collider directly below the piece, if the piece is snapping down
     
+    public List<Collider> collidersInContact; // colliders which have fired OnTriggerEnter regarding this piece but not yet OnTriggerExit, meaning the piece must leave them before placement correction is complete
+
     public bool canMoveDown;
     public bool canMoveTowardsNegX;
     public bool canMoveTowardsPosX;
@@ -68,6 +71,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
         // initialize instance variables
         isNew = true;
         currPlacementCorrection = PlacementCorrectionType.None;
+        collidersInContact = new List<Collider>();
         canMoveDown = true;
         canMoveTowardsNegX = true;
         canMoveTowardsPosX = true;
@@ -84,9 +88,6 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
         halo = getHalo();
         savedTransforms = new Dictionary<GameObject, SavedTransformInfo>();
         savedVelocities = new Dictionary<GameObject, SavedVelocityInfo>();
-
-        // turn off physics for this object for now
-        setKinematic(true);
 
         // move piece to position of touch (keeping it the same depth/distance from the camera as it was upon instantiation)
         // as seen in the fact that this is in Start, it should only happen upon instantiation. Position changes thereafter depend on how much the finger moves
@@ -106,6 +107,11 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
         if(!setupComplete){
             Start();
         }
+
+        // mark the currently occupied snap-to target GameObject, if there is one, as unoccupied
+        if (currOccupiedSnapToTarget != null){
+            currOccupiedSnapToTarget.GetComponent<SnapToTargetBehaviour>().occupied = false;
+        }
         
         // set initialPosition so that the piece can later revert to it if placed in an invalid position
         initialPosition = transform.position;
@@ -120,8 +126,11 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             // disable the previous active piece's halo
             Behaviour otherPieceHalo = raycastingScript.activePiece.GetComponent<PiecePrefabBehaviour>().getHalo() as Behaviour;
             otherPieceHalo.enabled = false;
+            // make the previous active piece's colliders into triggers
+            raycastingScript.activePiece.GetComponent<PiecePrefabBehaviour>().setTriggers(true);
         }
         halo.enabled = true;
+        setTriggers(false);
         raycastingScript.activePiece = gameObject;
         raycastingScript.piecesScrollView.GetComponent<ScrollRect>().enabled = false;
         raycastingScript.SetAllButtonsInteractable(false);
@@ -159,7 +168,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             }
         }else if(currPlacementCorrection == PlacementCorrectionType.SnapDown){
             transform.Translate(placementCorrectionFrameTranslation);
-            if(Intersects(gameObject, snapDownCollider.bounds)){ // we've hit the piece below this one
+            if(/*Intersects(gameObject, snapDownCollider.bounds) || */getBottom() < floorY || collidersInContact.Count() > 0){ // we've hit the piece below this one, or the floor
                 transform.Translate(-placementCorrectionFrameTranslation); // move back up a notch, so they're not actually overlapping
                 currPlacementCorrection = PlacementCorrectionType.None;
                 initialPosition = transform.position;
@@ -223,12 +232,20 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             // Helper function that indicates which of two colliders is closer to this piece
             Func<Collider, Collider, bool> isFirstDistanceSmaller = (first, second) => distFromThis(first) < distFromThis(second);
             
-            // Identify the detected collider that's closest to this piece
-            Collider closestCollider = colliders.Aggregate((first, second) => second == null || isFirstDistanceSmaller(first, second) ? first : second);
+            // Identify the detected collider that's closest to this piece and unoccupied
+            Collider closestCollider = colliders.Aggregate((first, second) => second == null || second.gameObject.GetComponent<SnapToTargetBehaviour>().occupied || (isFirstDistanceSmaller(first, second) && !first.gameObject.GetComponent<SnapToTargetBehaviour>().occupied) ? first : second);
             
-            // Use its position as the target
-            placementCorrectionTarget = closestCollider.gameObject.transform.position;
-            return PlacementCorrectionType.SnapTo;
+            if(!closestCollider.gameObject.GetComponent<SnapToTargetBehaviour>().occupied){ // could be occupied if the first collider, as well as all the non-null others, was occupied
+                // Mark the target GameObject as occupied, and store it so it can be unmarked if this piece leaves it
+                GameObject obj = closestCollider.gameObject;
+                obj.GetComponent<SnapToTargetBehaviour>().occupied = true;
+                currOccupiedSnapToTarget = obj;
+                
+                // Use its position as the target
+                placementCorrectionTarget = closestCollider.gameObject.transform.position;
+                return PlacementCorrectionType.SnapTo;
+            }
+            // if we reach here, all of the detected colliders were occupied, so continue on in the placement correction options
         }
         
         // Okay, there are no designated placement correction targets for this piece nearby. So next try: is it inside another piece? If so, snap up
@@ -272,6 +289,8 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
     protected abstract void movePiece(Vector2 touchPosition);
 
     public abstract void setKinematic(bool kinematic);
+
+    public abstract void setTriggers(bool triggers);
 
     public abstract Behaviour getHalo();
 

@@ -36,7 +36,10 @@ public class BallPrefabBehaviour : PiecePrefabBehaviour
 
     public override void setKinematic(bool kinematic){
         gameObject.GetComponent<Rigidbody>().isKinematic = kinematic;
-        gameObject.GetComponent<Collider>().isTrigger = kinematic;
+    }
+
+    public override void setTriggers(bool triggers){
+        gameObject.GetComponent<Collider>().isTrigger = triggers;
     }
     
     public override Behaviour getHalo(){
