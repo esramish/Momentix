@@ -53,7 +53,8 @@ public class RaycastingBehaviour : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if(Input.touchCount > 0 && !startStopButtonScript.physicsOn && !clearDialogShowing){ // don't want any raycasting detection while physics is on or while a clear all confirmation is showing
+        bool isPlacementCorrecting = activePiece != null && activePiece.GetComponent<PiecePrefabBehaviour>().isPlacementCorrecting();
+        if(Input.touchCount > 0 && !resetButtonScript.getResettable() && !isPlacementCorrecting && !clearDialogShowing){ // don't want any raycasting detection while the machine is resettable, while placement correction is occurrring, or while a clear all confirmation is showing
             Touch touch = Input.GetTouch(0);
             if(touch.phase == TouchPhase.Began){
                 Vector3 touchFarWorldCoords = mainCamera.ScreenToWorldPoint(new Vector3(touch.position.x, touch.position.y, mainCamera.farClipPlane));
@@ -129,9 +130,11 @@ public class RaycastingBehaviour : MonoBehaviour
         cameraRotateRightButton.GetComponent<Button>().interactable = active;
     }
 
-    // Set all buttons as interactable or not. Note that the reset button will only have interactable set to true here if the pieces are currently resettable
+    // Set all buttons as interactable or not. 
+    // Note that the reset button will only have interactable set to true here if the pieces are currently resettable, 
+    // and the piece controls buttons will only be set to interactable if there is an active piece (which there might not be, if the user somehow cleared the active piece before placement correction finished)
     public void SetAllButtonsInteractable(bool active){
-        SetAllPieceControlsButtonsInteractable(active);
+        SetAllPieceControlsButtonsInteractable(active && activePiece != null);
         SetAllCameraButtonsInteractable(active);
         startStopButton.interactable = active;
         resetButton.interactable = active && resetButtonScript.getResettable();

@@ -258,8 +258,8 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             return PlacementCorrectionType.SnapDown;
         }
 
-        // Okay, there's nothing close below the piece. Is its bottom lower than the floor? If so, snap up to the floor
-        if (getBottom() < floorY){
+        // Okay, there's nothing close below the piece, as detected by raycasting. Is its bottom lower than the floor (or just barely above it, which occurs because of floating-point stuff if the piece was previously on the floor and was dragged across it)? If so, snap to the floor
+        if (getBottom() - floorY < 0.01f){
             placementCorrectionTarget = new Vector3(transform.position.x, convertBottomToTransformY(floorY), transform.position.z);
             return PlacementCorrectionType.SnapTo;
         }

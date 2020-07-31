@@ -11,6 +11,7 @@ public class ResetButtonBehaviour : MonoBehaviour
     public GameObject mainScriptObject; // connected in editor
     public GameObject piecesScrollView; // connected in editor
     public GameObject startStopObject; // connected in editor
+    public GameObject pieceControlsPanel; // connected in editor
     private RaycastingBehaviour raycastingScript;
     private StartStopButtonBehaviour startStopButtonScript;
     
@@ -57,7 +58,7 @@ public class ResetButtonBehaviour : MonoBehaviour
         setResettable(false); // needs to be after the OnStartStopPress call
     }
 
-    // also toggles the button's interactable property
+    // also toggles the button's interactable property, and reappears the piece controls panel if applicable
     public void setResettable(bool resettable){
         gameObject.GetComponent<Button>().interactable = resettable;
         this.resettable = resettable;
@@ -65,6 +66,7 @@ public class ResetButtonBehaviour : MonoBehaviour
             if(startStopButtonScript != null){
                 startStopButtonScript.setButtonState("start");
             }
+            pieceControlsPanel.SetActive(true);
         }
     }
 

@@ -617,6 +617,7 @@ MonoBehaviour:
   mainScriptObject: {fileID: 415328358}
   piecesScrollView: {fileID: 822909710}
   startStopObject: {fileID: 375862297}
+  pieceControlsPanel: {fileID: 1795192888}
 --- !u!114 &256877184
 MonoBehaviour:
   m_ObjectHideFlags: 0

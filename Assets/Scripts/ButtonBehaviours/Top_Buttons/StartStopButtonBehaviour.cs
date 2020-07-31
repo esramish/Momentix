@@ -56,15 +56,15 @@ public class StartStopButtonBehaviour : MonoBehaviour
             setButtonState("resume"); // change the text and color of the button
         }
         
-        // disable piece control buttons (even when turning physics off, since we still don't have an active piece yet at that point)
+        // disable piece control buttons (even when turning physics off, since we still don't have an active piece yet at that point. But it's all irrelevant anyway if we don't allow paused-machine editing)
         raycastingScript.SetAllPieceControlsButtonsInteractable(false);
 
-        // toggle the visibility of some elements that are only visible when physics is off
-        pieceControlsPanel.SetActive(!physicsOn && raycastingScript.pieces.Count > 0);
+        // toggle the visibility of elements that are only visible when physics is off
         clearAllObject.SetActive(!physicsOn);
 
-        // turn off visibility of pieces scroll view, since we don't want to allow user to add pieces before resetting
+        // turn off visibility of pieces scroll view and piece controls panel, since we don't want to allow user to add or edit pieces before resetting
         piecesScrollView.SetActive(false);
+        pieceControlsPanel.SetActive(false);
         
         // toggle isKinematic and isTrigger for all pieces
         foreach(GameObject piece in raycastingScript.pieces){

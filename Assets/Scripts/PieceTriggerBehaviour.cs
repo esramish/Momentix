@@ -20,10 +20,14 @@ public class PieceTriggerBehaviour : MonoBehaviour
     }
 
     private void OnTriggerEnter(Collider other){
-        Transform parent = other.gameObject.transform.parent;
-        if(parent == null || parent.gameObject.name != "Workspace Boundaries"){ // presumably, therefore, it's a machine piece that had caused the collision
-            PiecePrefabBehaviour collidingPieceScript = getCompletePiece(other.gameObject).GetComponent<PiecePrefabBehaviour>();
-            collidingPieceScript.collidersInContact.Add(gameObject.GetComponent<Collider>());
+        Transform otherParent = other.gameObject.transform.parent;
+        if(otherParent == null || otherParent.gameObject.name != "Workspace Boundaries"){ // presumably, therefore, it's a machine piece that had caused the collision
+            GameObject collidingPiece = getCompletePiece(other.gameObject);
+            GameObject thisPiece = getCompletePiece(gameObject);
+            if(collidingPiece != thisPiece){ // make sure we don't add colliders that are actually part of this piece--this happens with flat levers, for example    
+                PiecePrefabBehaviour collidingPieceScript = collidingPiece.GetComponent<PiecePrefabBehaviour>();
+                collidingPieceScript.collidersInContact.Add(gameObject.GetComponent<Collider>());
+            }
         }
     }
 
