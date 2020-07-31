@@ -1520,6 +1520,10 @@ MonoBehaviour:
   piecePrefab: {fileID: 3778389451935580296, guid: 200080b4242894f138ace4a3b1328949,
     type: 3}
   mainScriptObject: {fileID: 415328358}
+  camLeftButton: {fileID: 832666791}
+  camRightButton: {fileID: 1973021329}
+  pieceLeftButton: {fileID: 1762241301}
+  pieceRightButton: {fileID: 346762131}
 --- !u!114 &433005879
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2315,6 +2319,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 55ff9d166a2064340b9baef9ea6d41ca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  mainScriptObject: {fileID: 415328358}
 --- !u!1 &835633068
 GameObject:
   m_ObjectHideFlags: 0
@@ -2446,6 +2451,10 @@ MonoBehaviour:
   piecePrefab: {fileID: 853612319450570754, guid: 1b96173853e1c47759e13863b1dc406b,
     type: 3}
   mainScriptObject: {fileID: 415328358}
+  camLeftButton: {fileID: 832666791}
+  camRightButton: {fileID: 1973021329}
+  pieceLeftButton: {fileID: 1762241301}
+  pieceRightButton: {fileID: 346762131}
 --- !u!114 &869713419
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3806,6 +3815,10 @@ MonoBehaviour:
   piecePrefab: {fileID: 8597676404355715959, guid: 6af45b5795b9440ffa5ba395ab2611c4,
     type: 3}
   mainScriptObject: {fileID: 415328358}
+  camLeftButton: {fileID: 832666791}
+  camRightButton: {fileID: 1973021329}
+  pieceLeftButton: {fileID: 1762241301}
+  pieceRightButton: {fileID: 346762131}
 --- !u!114 &1393518012
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3984,6 +3997,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   piecePrefab: {fileID: 0}
   mainScriptObject: {fileID: 415328358}
+  camLeftButton: {fileID: 832666791}
+  camRightButton: {fileID: 1973021329}
+  pieceLeftButton: {fileID: 1762241301}
+  pieceRightButton: {fileID: 346762131}
 --- !u!114 &1506862130
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4990,6 +5007,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ee9181d2a1c7849ffac2dfa751d326a0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  mainScriptObject: {fileID: 415328358}
 --- !u!1 &2005726456
 GameObject:
   m_ObjectHideFlags: 0
@@ -5043,6 +5061,10 @@ MonoBehaviour:
   piecePrefab: {fileID: 8110590239581912284, guid: 8df1fae0f3c4f44dcb10a47b7af33c5f,
     type: 3}
   mainScriptObject: {fileID: 415328358}
+  camLeftButton: {fileID: 832666791}
+  camRightButton: {fileID: 1973021329}
+  pieceLeftButton: {fileID: 1762241301}
+  pieceRightButton: {fileID: 346762131}
 --- !u!114 &2005726460
 MonoBehaviour:
   m_ObjectHideFlags: 0

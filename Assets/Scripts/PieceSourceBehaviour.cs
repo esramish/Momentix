@@ -9,11 +9,23 @@ public class PieceSourceBehaviour : MonoBehaviour, IPointerDownHandler
     public GameObject piecePrefab;
     public GameObject mainScriptObject; // connected in editor
     private RaycastingBehaviour raycastingScript;
+    public GameObject camLeftButton; // connected in editor
+    private CameraRotateLeftButtonBehaviour camLeftButtonScript;
+    public GameObject camRightButton; // connected in editor
+    private CameraRotateRightButtonBehaviour camRightButtonScript;
+    public GameObject pieceLeftButton; // connected in editor
+    private PieceRotateLeftButtonBehaviour pieceLeftButtonScript;
+    public GameObject pieceRightButton; // connected in editor
+    private PieceRotateRightButtonBehaviour pieceRightButtonScript;
     
     // Start is called before the first frame update
     void Start()
     {
         raycastingScript = mainScriptObject.GetComponent<RaycastingBehaviour>();
+        camLeftButtonScript = camLeftButton.GetComponent<CameraRotateLeftButtonBehaviour>();
+        camRightButtonScript = camRightButton.GetComponent<CameraRotateRightButtonBehaviour>();
+        pieceLeftButtonScript = pieceLeftButton.GetComponent<PieceRotateLeftButtonBehaviour>();
+        pieceRightButtonScript = pieceRightButton.GetComponent<PieceRotateRightButtonBehaviour>();
     }
 
     // Update is called once per frame
@@ -32,6 +44,10 @@ public class PieceSourceBehaviour : MonoBehaviour, IPointerDownHandler
             if(activePieceBehaviour.isMoving() || activePieceBehaviour.isPlacementCorrecting()){
                 return;
             }
+        }
+
+        if(camLeftButtonScript.rotating() || camRightButtonScript.rotating() || pieceLeftButtonScript.rotating() || pieceRightButtonScript.rotating()){
+            return;
         }
 
         raycastingScript.SetTopButtonsVisible(true);

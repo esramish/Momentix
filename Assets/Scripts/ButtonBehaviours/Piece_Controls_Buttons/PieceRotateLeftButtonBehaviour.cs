@@ -29,10 +29,20 @@ public class PieceRotateLeftButtonBehaviour : MonoBehaviour, IPointerDownHandler
     }
 
     public void OnPointerDown(PointerEventData data){
+        if(raycastingScript.activePiece != null){
+            PiecePrefabBehaviour activePieceBehaviour = raycastingScript.activePiece.GetComponent<PiecePrefabBehaviour>();
+            if(activePieceBehaviour.isMoving() || activePieceBehaviour.isPlacementCorrecting()){
+                return;
+            }
+        }
         pieceRotationDirection = 1;
     }
     
     public void OnPointerUp(PointerEventData data){
         pieceRotationDirection = 0;
+    }
+
+    public bool rotating(){
+        return pieceRotationDirection != 0;
     }
 }
