@@ -6,7 +6,7 @@ using UnityEngine.EventSystems;
 public class PieceSourceBehaviour : MonoBehaviour, IPointerDownHandler
 {
     
-    public GameObject piecePrefab;
+    public GameObject piecePrefab; // connected in editor
     public GameObject mainScriptObject; // connected in editor
     private RaycastingBehaviour raycastingScript;
     public GameObject camLeftButton; // connected in editor
@@ -56,7 +56,9 @@ public class PieceSourceBehaviour : MonoBehaviour, IPointerDownHandler
         raycastingScript.resetButtonScript.setResettable(false);
 
         GameObject newPiece = Instantiate(piecePrefab);
-        newPiece.GetComponent<PiecePrefabBehaviour>().OnPieceTouchBegin();
+        PiecePrefabBehaviour newPieceScript = newPiece.GetComponent<PiecePrefabBehaviour>();
+        newPieceScript.prefab = piecePrefab;
+        newPieceScript.OnPieceTouchBegin();
     }
 
 }

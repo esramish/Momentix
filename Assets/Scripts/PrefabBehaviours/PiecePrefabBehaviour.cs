@@ -21,11 +21,13 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
     private const float SNAP_DOWN_DIST_THRESHOLD = 2;
     private const float SECONDS_TO_INITIAL_POSITION = 0.5f;
 
+    public GameObject prefab; // the prefab of which this piece is an instance. Assigned in another class
     private bool setupComplete; // set to true once various object references are initialized. Don't set to false again after that!
     protected bool isNew; // the user hasn't stopped dragging the piece since it was instantiated
     protected bool moving; // the user is currently dragging 
     
     private PlacementCorrectionType currPlacementCorrection; // the way, if any, in which the piece is currently having its placement auto-corrected
+    private GameObject positionTestObject; // used to make sure placement correction itself won't cause an overlap
 
     private Vector3 initialPosition; // the location where the piece was on the most recent touch begin, if the piece is currently moving
     private Vector3 initialPositionReturnFrameTranslation; // the vector the piece moves in a single update call when currPlacementCorrection == PlacementCorrectionType.ReturnToInitPosition
@@ -111,6 +113,12 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             currOccupiedSnapToTarget = null;
         }
         
+        // create an invisible GameObject to test for placement correction-induced overlap 
+        positionTestObject = Instantiate(prefab);
+        makeInvisible(positionTestObject);
+        positionTestObject.GetComponent<PiecePrefabBehaviour>().getHalo().enabled = false;
+        setLayerDeep(positionTestObject, 2); // so that downward raycasts from the actual piece don't detect the position test object
+
         // set initialPosition so that the piece can later revert to it if placed in an invalid position
         initialPosition = transform.position;
 
@@ -148,6 +156,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
                     transform.position = initialPosition;
                     currPlacementCorrection = PlacementCorrectionType.None;
                 }
+                DisconnectAndDestroy(positionTestObject);
                 reactivateInteractables();
             }
         }else if(currPlacementCorrection == PlacementCorrectionType.SnapTo){
@@ -162,6 +171,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
                     isNew = false;
                     pieces.Add(gameObject);
                 }
+                DisconnectAndDestroy(positionTestObject);
                 reactivateInteractables();
             }
         }else if(currPlacementCorrection == PlacementCorrectionType.SnapDown){
@@ -174,13 +184,14 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
                     isNew = false;
                     pieces.Add(gameObject);
                 }
+                DisconnectAndDestroy(positionTestObject);
                 reactivateInteractables();
             }
         }else if(moving && Input.touchCount > 0){
             Touch touch = Input.GetTouch(0);
             if(touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled){
                 moving = false;
-                PlacementCorrectionType availablePlacementCorrection = calculatePlacementCorrectionTarget();
+                PlacementCorrectionType availablePlacementCorrection = calculatePlacementCorrectionTarget(false);
                 switch(availablePlacementCorrection){
                     case PlacementCorrectionType.SnapTo: // includes snapping to a designated target and snapping up out of the floor
                         placementCorrectionTotalFrames = SNAP_SECONDS / Time.deltaTime;
@@ -201,6 +212,8 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
                 }
             }else if(touch.phase == TouchPhase.Moved){
                 movePiece(touch.position);
+                calculatePlacementCorrectionTarget(true);
+                positionTestObject.transform.position = placementCorrectionTarget;
             }
         }
     }
@@ -213,7 +226,8 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
     // This method calculates a Vector3 representing the nearest valid snap-to target position, if there is one nearby, for placement auto-correction.
     // It then assigns that value (if it exists) to the corresponding instance variable, placementCorrectionTarget.
     // It returns a PlacementCorrectionType representing the best placement correction type available (this will be PlacementCorrectionType.SnapTo if a target position was successfully calculated)
-    private PlacementCorrectionType calculatePlacementCorrectionTarget(){
+    // param testing: indicates whether the method is being called to test a position or to actually move there (more non-local variable assignments occur in the latter case)
+    private PlacementCorrectionType calculatePlacementCorrectionTarget(bool testing){
         
         // detect up to MAX_SNAP_TO_COLLIDERS nearby snap-to objects that are relevant to this specific piece
         Collider[] colliders = new Collider[MAX_SNAP_TO_COLLIDERS];
@@ -232,13 +246,23 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             Collider closestCollider = colliders.Aggregate((first, second) => second == null || second.gameObject.GetComponent<SnapToTargetBehaviour>().occupied || (isFirstDistanceSmaller(first, second) && !first.gameObject.GetComponent<SnapToTargetBehaviour>().occupied) ? first : second);
             
             if(!closestCollider.gameObject.GetComponent<SnapToTargetBehaviour>().occupied){ // could be occupied if the first collider, as well as all the non-null others, was occupied
-                // Mark the target GameObject as occupied, and store it so it can be unmarked if this piece leaves it
                 GameObject obj = closestCollider.gameObject;
-                obj.GetComponent<SnapToTargetBehaviour>().occupied = true;
-                currOccupiedSnapToTarget = obj;
+                Transform objTransform = obj.transform;
+                
+                // If not just testing:
+                    // test the position to make sure it wouldn't cause overlap with another piece (besides the one it's snapping to)
+                    // if valid position, mark the target GameObject as occupied, and store it so it can be unmarked if this piece leaves it
+                if(!testing){
+                    List<Collider> positionTestObjectCollidersInContact = positionTestObject.GetComponent<PiecePrefabBehaviour>().collidersInContact;
+                    if(!allPartOfGameObject(positionTestObjectCollidersInContact, getCompletePiece(closestCollider.gameObject))){ // the position would cause overlap with another piece (besides the one it's snapping to)
+                        return PlacementCorrectionType.ReturnToInitPosition;
+                    }
+                    obj.GetComponent<SnapToTargetBehaviour>().occupied = true;
+                    currOccupiedSnapToTarget = obj;
+                }
                 
                 // Use its position as the target
-                placementCorrectionTarget = closestCollider.gameObject.transform.position;
+                placementCorrectionTarget = objTransform.position;
                 return PlacementCorrectionType.SnapTo;
             }
             // if we reach here, all of the detected colliders were occupied, so continue on in the placement correction options
@@ -258,14 +282,75 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             return PlacementCorrectionType.SnapDown;
         }
 
-        // Okay, there's nothing close below the piece, as detected by raycasting. Is its bottom lower than the floor (or just barely above it, which occurs because of floating-point stuff if the piece was previously on the floor and was dragged across it)? If so, snap to the floor
+        // Okay, there's nothing close below the piece, as detected by raycasting. Is its bottom lower than the floor 
+        // (or just barely above it, which occurs because of floating-point stuff if the piece was previously on the floor and was dragged across it)? 
+        // If so, snap to the floor, unless that would cause overlap with another piece
         if (getBottom() - floorY < 0.01f){
+            if(!testing && positionTestObject.GetComponent<PiecePrefabBehaviour>().collidersInContact.Count > 0){ // the position would cause overlap
+                return PlacementCorrectionType.ReturnToInitPosition;
+            }
             placementCorrectionTarget = new Vector3(transform.position.x, convertBottomToTransformY(floorY), transform.position.z);
             return PlacementCorrectionType.SnapTo;
         }
         
         // it's not close enough to any valid placement correction targets, other pieces (vertically), or the floor, so return PlacementCorrectionType.ReturnToInitPosition to indicate invalid placement
         return PlacementCorrectionType.ReturnToInitPosition;
+    }
+
+    // this recursive function works up the hierarchy looking for an object with a PiecePrefabBehaviour (implemented because of compound colliders)
+    private GameObject getCompletePiece(GameObject child){
+        if(child.GetComponent<PiecePrefabBehaviour>() != null){ 
+            return child;
+        }
+        if(child.transform.parent == null){
+            return null;
+        }
+        return getCompletePiece(child.transform.parent.gameObject);
+    }
+
+    // return a bool representing whether or not every collider in colliders is a component of (or a component of a chlid of) obj
+    // returns true only if ALL of the colliders meet this condition
+    private bool allPartOfGameObject(List<Collider> colliders, GameObject obj){
+        foreach(Collider col in colliders){
+            if(obj != getCompletePiece(col.gameObject)){
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // remove piece's colliders from the collidersInContact lists of any other GameObjects in contact with obj, then destroy piece
+    private void DisconnectAndDestroy(GameObject piece){
+        foreach(Collider colliderInContact in piece.GetComponent<PiecePrefabBehaviour>().collidersInContact){ // for each collider in contact with piece
+            Transform parent = colliderInContact.gameObject.transform.parent;
+            if(parent == null || parent.gameObject.name != "Workspace Boundaries"){ // presumably, therefore, the collider in question belongs to another machine piece that's in contact with piece
+                PiecePrefabBehaviour pieceInContactScript = getCompletePiece(colliderInContact.gameObject).GetComponent<PiecePrefabBehaviour>(); // get that other collider's piece and its script
+                int lastIndex = pieceInContactScript.collidersInContact.Count - 1;
+                for(int i = lastIndex; i >= 0; i--){ // for each collider in contact with the other piece in question
+                    Collider colliderInContactWithOtherPiece = pieceInContactScript.collidersInContact[i];
+                    if(isDescendent(colliderInContactWithOtherPiece.gameObject.transform, piece.transform)){ // if the collider belongs to piece
+                        // remove the collider from the collidersInContact list of the other piece in question
+                        pieceInContactScript.collidersInContact.RemoveAt(i);
+                    }
+                }
+            }
+        }
+
+        Destroy(piece);
+    }
+
+    // recursive function that works down a hierarchy to see if one transform is a descendent (including equivalent) of another
+    private bool isDescendent(Transform descendent, Transform ancestor){
+        if(descendent==ancestor){
+            return true;
+        }
+        foreach(Transform anc_child in ancestor){
+            if(isDescendent(descendent, anc_child)){
+                return true;
+            }
+        }
+        return false;
     }
 
     protected abstract void pieceSpecificSetup();
@@ -277,6 +362,25 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
     public abstract void setTriggers(bool triggers);
 
     public abstract Behaviour getHalo();
+
+    // Recursively disables all renderers of parent and its descendents
+    private void makeInvisible(GameObject parent){
+        Renderer r = parent.GetComponent<Renderer>();
+        if (r != null){
+            r.enabled = false;
+        }
+        foreach(Transform child_trans in parent.transform){
+            makeInvisible(child_trans.gameObject);
+        }
+    }
+
+    // recursively set the layer of parent and all its descendents
+    private void setLayerDeep(GameObject parent, int layer){
+        parent.layer = layer;
+        foreach(Transform child_trans in parent.transform){
+            setLayerDeep(child_trans.gameObject, layer);
+        }
+    }
 
     protected abstract float getHeight();
     protected abstract float getTop();
