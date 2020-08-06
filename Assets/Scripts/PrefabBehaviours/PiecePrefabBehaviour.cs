@@ -20,6 +20,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
     private const float SNAP_SECONDS = 0.5f; // this should be exact for SnapTo, approx for SnapDown (since getBottom isn't always quite correct)
     private const float SNAP_DOWN_DIST_THRESHOLD = 2;
     private const float SECONDS_TO_INITIAL_POSITION = 0.5f;
+    private const double FRAME_TRANSLATION_THRESHOLD = 1.0E-8; // if the frame translation for a placement correction/initial position return is less than this in squared magnitude, that placement correction or initial position return is cancelled
 
     public GameObject prefab; // the prefab of which this piece is an instance. Assigned in another class
     private bool setupComplete; // set to true once various object references are initialized. Don't set to false again after that!
@@ -145,7 +146,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
     void Update()
     {
         if(currPlacementCorrection == PlacementCorrectionType.ReturnToInitPosition){
-            if(initialPositionReturnFramesCompleted < initialPositionReturnTotalFrames){
+            if(initialPositionReturnFramesCompleted < initialPositionReturnTotalFrames && initialPositionReturnFrameTranslation.sqrMagnitude > FRAME_TRANSLATION_THRESHOLD){
                 transform.Translate(initialPositionReturnFrameTranslation, Space.World);
                 initialPositionReturnFramesCompleted++;
             }else{
@@ -160,7 +161,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
                 reactivateInteractables();
             }
         }else if(currPlacementCorrection == PlacementCorrectionType.SnapTo){
-            if(placementCorrectionFramesCompleted < placementCorrectionTotalFrames){
+            if(placementCorrectionFramesCompleted < placementCorrectionTotalFrames && placementCorrectionFrameTranslation.sqrMagnitude > FRAME_TRANSLATION_THRESHOLD){
                 transform.Translate(placementCorrectionFrameTranslation, Space.World);
                 placementCorrectionFramesCompleted++;
             }else{
@@ -176,7 +177,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
             }
         }else if(currPlacementCorrection == PlacementCorrectionType.SnapDown){
             transform.Translate(placementCorrectionFrameTranslation);
-            if(getBottom() < floorY || collidersInContact.Count > 0){ // we've hit the piece below this one, or the floor
+            if(getBottom() < floorY || collidersInContact.Count > 0 || placementCorrectionFrameTranslation.sqrMagnitude < FRAME_TRANSLATION_THRESHOLD){ // we've hit the piece below this one, or the floor; or the incremental movement is deemed too small for gradual placement correction
                 transform.Translate(-placementCorrectionFrameTranslation); // move back up a notch, so they're not actually overlapping
                 currPlacementCorrection = PlacementCorrectionType.None;
                 initialPosition = transform.position;

@@ -47,6 +47,14 @@ public class ResetButtonBehaviour : MonoBehaviour
             raycastingScript.pieces.Add(piece);
         }
         raycastingScript.piecesRemovedWhileResettable.Clear();
+
+        // Before resetting *any* positions (which will cause OnTriggerEnter to fire for the pieces),
+        // clear *all* of the collidersInContact lists so that we don't have unwanted duplicates
+        // (so don't merge this loop with the next one!)
+        foreach(GameObject piece in raycastingScript.pieces){
+            PiecePrefabBehaviour pieceScript = piece.GetComponent<PiecePrefabBehaviour>();
+            pieceScript.collidersInContact.Clear();
+        }
         
         // Finally, actually do the resetting
         foreach (GameObject piece in raycastingScript.pieces){
