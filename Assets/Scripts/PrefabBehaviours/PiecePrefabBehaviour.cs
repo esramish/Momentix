@@ -116,6 +116,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
         
         // create an invisible GameObject to test for placement correction-induced overlap 
         positionTestObject = Instantiate(prefab);
+        positionTestObject.transform.rotation = transform.rotation;
         makeInvisible(positionTestObject);
         positionTestObject.GetComponent<PiecePrefabBehaviour>().getHalo().enabled = false;
         setLayerDeep(positionTestObject, 2); // so that downward raycasts from the actual piece don't detect the position test object
@@ -201,7 +202,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
                         currPlacementCorrection = PlacementCorrectionType.SnapTo;
                         break;
                     case PlacementCorrectionType.SnapDown:
-                        placementCorrectionFrameTranslation = (placementCorrectionTarget - new Vector3(transform.position.x, getBottom(), transform.position.z)) * Time.deltaTime / SNAP_SECONDS;
+                        placementCorrectionFrameTranslation = (placementCorrectionTarget - transform.position) * Time.deltaTime / SNAP_SECONDS;
                         currPlacementCorrection = PlacementCorrectionType.SnapDown;
                         break;
                     default: // piece was placed in an invalid location
@@ -279,7 +280,7 @@ public abstract class PiecePrefabBehaviour : MonoBehaviour
         RaycastHit hit;
         Vector3 raycastOrigin = new Vector3(transform.position.x, getBottom(), transform.position.z);
         if (Physics.Raycast(raycastOrigin, Vector3.down, out hit, SNAP_DOWN_DIST_THRESHOLD, layerMask)){
-            placementCorrectionTarget = hit.point;
+            placementCorrectionTarget = new Vector3(hit.point.x, convertBottomToTransformY(hit.point.y), hit.point.z);
             return PlacementCorrectionType.SnapDown;
         }
 
