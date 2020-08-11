@@ -21,7 +21,8 @@ public class RaycastingBehaviour : MonoBehaviour
     private TouchAction currTouchAction;
     
     public Vector3 camPointOfRotation;
-    public Vector3 camAxisOfRotation;
+    public Vector3 camAxisOfHorizRotation;
+    public Vector3 camAxisOfVertRotation;
     private float rotationDegreesPerPixel; // how many degrees the camera rotates when user's finger moves one pixel across the screen
 
     public List<GameObject> pieces; // used in other classes
@@ -56,7 +57,8 @@ public class RaycastingBehaviour : MonoBehaviour
         mainCamera = Camera.main;
         currTouchAction = TouchAction.None;
         camPointOfRotation = Vector3.zero;
-        camAxisOfRotation = Vector3.up;
+        camAxisOfHorizRotation = Vector3.up;
+        camAxisOfVertRotation = Vector3.right;
         rotationDegreesPerPixel = 0.1F;
         pieces = new List<GameObject>();
         piecesRemovedWhileResettable = new List<GameObject>();
@@ -131,8 +133,13 @@ public class RaycastingBehaviour : MonoBehaviour
             return;
         }
 
-        // only horizontal rotation for now
-        mainCamera.gameObject.transform.RotateAround(camPointOfRotation, camAxisOfRotation, (touch.position - prevFrameFirstTouchPosition).x * rotationDegreesPerPixel);
+        mainCamera.gameObject.transform.RotateAround(camPointOfRotation, camAxisOfHorizRotation, (touch.position - prevFrameFirstTouchPosition).x * rotationDegreesPerPixel);
+        camAxisOfVertRotation = mainCamera.transform.right;
+        mainCamera.gameObject.transform.RotateAround(camPointOfRotation, camAxisOfVertRotation, (prevFrameFirstTouchPosition - touch.position).y * rotationDegreesPerPixel);
+        if(mainCamera.transform.up.y < 0){ // the "top" of the camera is starting to point at all downwards, which we don't want to allow
+            // undo the vertical rotation
+            mainCamera.gameObject.transform.RotateAround(camPointOfRotation, camAxisOfVertRotation, (touch.position - prevFrameFirstTouchPosition).y * rotationDegreesPerPixel);
+        }
         prevFrameFirstTouchPosition = touch.position;
     }
 
