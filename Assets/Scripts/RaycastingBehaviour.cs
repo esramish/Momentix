@@ -14,8 +14,7 @@ public class RaycastingBehaviour : MonoBehaviour
         None, 
         MovingPiece,
         RotatingCamera,
-        ZoomingCamera, 
-        PanningCamera
+        ZoomingAndPanningCamera
     }
 
     private TouchAction currTouchAction;
@@ -24,6 +23,8 @@ public class RaycastingBehaviour : MonoBehaviour
     public Vector3 camAxisOfHorizRotation;
     public Vector3 camAxisOfVertRotation;
     private float rotationDegreesPerPixel; // how many degrees the camera rotates when user's finger moves one pixel across the screen
+
+    private float zoomDistPerPixel; // how far forward the camera moves when one of the user's fingers moves one pixel further on the screen from their other finger
 
     public List<GameObject> pieces; // used in other classes
     public List<GameObject> piecesRemovedWhileResettable; // used in other classes
@@ -56,10 +57,14 @@ public class RaycastingBehaviour : MonoBehaviour
     {
         mainCamera = Camera.main;
         currTouchAction = TouchAction.None;
+        
         camPointOfRotation = Vector3.zero;
         camAxisOfHorizRotation = Vector3.up;
         camAxisOfVertRotation = Vector3.right;
         rotationDegreesPerPixel = 0.1F;
+        
+        zoomDistPerPixel = 0.01F;
+        
         pieces = new List<GameObject>();
         piecesRemovedWhileResettable = new List<GameObject>();
         pieceControlsPanel.SetActive(false);
@@ -92,7 +97,7 @@ public class RaycastingBehaviour : MonoBehaviour
             Touch firstTouch = Input.GetTouch(0);
             Touch secondTouch = Input.GetTouch(1);
             if(secondTouch.phase == TouchPhase.Began){
-                handleSecondTouchBegin(secondTouch);
+                handleSecondTouchBegin(firstTouch, secondTouch);
             }else if(firstTouch.phase == TouchPhase.Moved || secondTouch.phase == TouchPhase.Moved){
                 handleTwoTouchMove(firstTouch, secondTouch);
             }else if(firstTouch.phase == TouchPhase.Ended || firstTouch.phase == TouchPhase.Canceled){
@@ -128,7 +133,6 @@ public class RaycastingBehaviour : MonoBehaviour
     }
 
     private void handleOneTouchMove(Touch touch){
-
         if(currTouchAction != TouchAction.RotatingCamera){
             return;
         }
@@ -143,12 +147,33 @@ public class RaycastingBehaviour : MonoBehaviour
         prevFrameFirstTouchPosition = touch.position;
     }
 
-    private void handleSecondTouchBegin(Touch touch){
-        return;
+    private void handleSecondTouchBegin(Touch firstTouch, Touch secondTouch){
+        if(currTouchAction == TouchAction.MovingPiece){
+            return;
+        }
+
+        currTouchAction = TouchAction.ZoomingAndPanningCamera;
+        prevFrameFirstTouchPosition = firstTouch.position;
+        prevFrameSecondTouchPosition = secondTouch.position;
     }
     
     private void handleTwoTouchMove(Touch firstTouch, Touch secondTouch){
-        return;
+        if(currTouchAction != TouchAction.ZoomingAndPanningCamera){
+            return;
+        }
+
+        // zooming
+        float prevTouchDistance = Vector2.Distance(prevFrameFirstTouchPosition, prevFrameSecondTouchPosition);
+        float currTouchDistance = Vector2.Distance(firstTouch.position, secondTouch.position);
+        mainCamera.gameObject.transform.Translate(mainCamera.transform.forward * (currTouchDistance - prevTouchDistance) * zoomDistPerPixel, Space.World);
+        
+        // panning
+        // Vector2 prevAvgTouchPosition = (prevFrameFirstTouchPosition + prevFrameSecondTouchPosition) / 2;
+        // Vector2 newAvgTouchPosition = (firstTouch + secondTouch) / 2;
+
+        // update instance variables
+        prevFrameFirstTouchPosition = firstTouch.position;
+        prevFrameSecondTouchPosition = secondTouch.position;
     }
 
     // casts a ray in the direction of touch and returns the machine piece that is hit, if one is hit
