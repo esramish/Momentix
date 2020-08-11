@@ -23,7 +23,7 @@ public class CameraRotateRightButtonBehaviour : MonoBehaviour, IPointerDownHandl
     // Update is called once per frame
     void Update()
     {
-        Camera.main.gameObject.transform.RotateAround(Vector3.zero, Vector3.up, camRotationDirection * DEGREES_PER_SECOND * Time.deltaTime);
+        Camera.main.gameObject.transform.RotateAround(raycastingScript.camPointOfRotation, raycastingScript.camAxisOfRotation, camRotationDirection * DEGREES_PER_SECOND * Time.deltaTime);
     }
 
     public void OnPointerDown(PointerEventData data){
