@@ -7,6 +7,27 @@ using UnityEngine.EventSystems;
 public class RaycastingBehaviour : MonoBehaviour
 {
     private Camera mainCamera;
+    private Vector2 prevFrameFirstTouchPosition;
+    private Vector2 prevFrameSecondTouchPosition;
+
+    enum TouchAction {
+        None, 
+        MovingPiece,
+        RotatingCamera,
+        ZoomingAndPanningCamera
+    }
+
+    private TouchAction currTouchAction;
+    
+    public GameObject camRotationCenter; // connected in editor
+    public Vector3 camAxisOfHorizRotation;
+    public Vector3 camAxisOfVertRotation;
+    private float rotationDegreesPerPixel; // how many degrees the camera rotates when user's finger moves one pixel across the screen
+
+    private float zoomDistPerPixel; // how far forward the camera moves when one of the user's fingers moves one pixel further on the screen from their other finger
+
+    private float panDistPerPixel; // how far vertically/horizontally the camera moves when the average position of the user's two fingers changes one pixel vertically/horizontally on the screen
+
     public List<GameObject> pieces; // used in other classes
     public List<GameObject> piecesRemovedWhileResettable; // used in other classes
     public GameObject piecesScrollView; // connected in editor
@@ -37,6 +58,16 @@ public class RaycastingBehaviour : MonoBehaviour
     void Start()
     {
         mainCamera = Camera.main;
+        currTouchAction = TouchAction.None;
+        
+        camAxisOfHorizRotation = Vector3.up;
+        camAxisOfVertRotation = Vector3.right;
+        rotationDegreesPerPixel = 0.1F;
+        
+        zoomDistPerPixel = 0.01F;
+
+        panDistPerPixel = 0.01F;
+        
         pieces = new List<GameObject>();
         piecesRemovedWhileResettable = new List<GameObject>();
         pieceControlsPanel.SetActive(false);
@@ -53,40 +84,138 @@ public class RaycastingBehaviour : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        bool isPlacementCorrecting = activePiece != null && activePiece.GetComponent<PiecePrefabBehaviour>().isPlacementCorrecting();
-        if(Input.touchCount > 0 && !resetButtonScript.getResettable() && !isPlacementCorrecting && !clearDialogShowing){ // don't want any raycasting detection while the machine is resettable, while placement correction is occurrring, or while a clear all confirmation is showing
+        if(clearDialogShowing){
+            return; // don't want any raycasting detection while a clear all confirmation is showing
+        }
+        if(Input.touchCount == 1){ 
             Touch touch = Input.GetTouch(0);
-            if(touch.phase == TouchPhase.Began){
-                Vector3 touchFarWorldCoords = mainCamera.ScreenToWorldPoint(new Vector3(touch.position.x, touch.position.y, mainCamera.farClipPlane));
-                RaycastHit hit3D;
-                bool hitSignificant3DObject = false; // true for machine pieces but false for the workspace, for example
-                GameObject hitObject = null;
-                // Debug.DrawRay(transform.position, touchFarWorldCoords, Color.white); // now that this script isn't attached to the camera, transform.position would need to be updated
-                if(Physics.Raycast(mainCamera.gameObject.transform.position, touchFarWorldCoords - mainCamera.gameObject.transform.position, out hit3D)){
-                    hitObject = hit3D.collider.gameObject;
-                    hitSignificant3DObject = true;
-                    while(hitObject.GetComponent<PiecePrefabBehaviour>() == null){ // this loop works up the hierarchy looking for an object with a PiecePrefabBehaviour, for example in the case of compound colliders
-                        if(hitObject.transform.parent){
-                            hitObject = hitObject.transform.parent.gameObject; // so now we'll check if the parent object has a PiecePrefabBehaviour
-                        }else{ // for example we had hit the workspace, which has a collider but no ancestors with a PiecePrefabBehaviour
-                            hitSignificant3DObject = false;
-                            break;
-                        }
-                    }
-                }
-                if(hitSignificant3DObject){
-                    hitObject.GetComponent<PiecePrefabBehaviour>().OnPieceTouchBegin();
-                }else{ // didn't hit any significant 3D colliders, so let's check for graphics items (items on the canvas)
-                    PointerEventData touchEventData = new PointerEventData(eventSystem);
-                    touchEventData.position = touch.position;
-                    List<RaycastResult> graphicsResults = new List<RaycastResult>(); // out-parameter, it seems
-                    graphicRaycaster.Raycast(touchEventData, graphicsResults);
-                    if(graphicsResults.Count == 0){ // user didn't touch anything (e.g. buttons, scroll bar) on the canvas. Since we already know user didn't touch a significant 3D piece either, we'll assume they were just touching the screen to clear their piece selection
-                        ClearActivePiece();
-                    }
-                } 
+            if(touch.phase == TouchPhase.Began){ 
+                handleFirstTouchBegin(touch);
+            }else if(touch.phase == TouchPhase.Moved){
+                handleOneTouchMove(touch);
+            }else if(touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled){
+                currTouchAction = TouchAction.None;
+            }
+        }else if(Input.touchCount == 2){
+            Touch firstTouch = Input.GetTouch(0);
+            Touch secondTouch = Input.GetTouch(1);
+            if(secondTouch.phase == TouchPhase.Began){
+                handleSecondTouchBegin(firstTouch, secondTouch);
+            }else if(firstTouch.phase == TouchPhase.Moved || secondTouch.phase == TouchPhase.Moved){
+                handleTwoTouchMove(firstTouch, secondTouch);
+            }else if(firstTouch.phase == TouchPhase.Ended || firstTouch.phase == TouchPhase.Canceled){
+                handleFirstTouchBegin(secondTouch);
+            }else if(secondTouch.phase == TouchPhase.Ended || secondTouch.phase == TouchPhase.Canceled){
+                handleFirstTouchBegin(firstTouch);
             }
         }
+    }
+
+    private void handleFirstTouchBegin(Touch touch){
+        bool isPlacementCorrecting = activePiece != null && activePiece.GetComponent<PiecePrefabBehaviour>().isPlacementCorrecting();
+        if(!resetButtonScript.getResettable() && !isPlacementCorrecting){ // don't want to detect piece touches while the machine is resettable or while placement correction is occurrring
+            GameObject hitObject = getSignificant3DObjectHit(touch);
+            if(hitObject != null){ // raycast hit a piece
+                currTouchAction = TouchAction.MovingPiece;
+                hitObject.GetComponent<PiecePrefabBehaviour>().OnPieceTouchBegin();
+                return;
+            }
+        }
+
+        // check if user touched any Canvas objects
+        if(hitCanvasElement(touch)){
+            return; // user touched something on the canvas, so don't bother with rotation/zooming/panning
+        }
+
+        // user didn't touch anything (e.g. buttons, scroll bar) on the canvas. 
+        // Since we already know user didn't touch a significant 3D piece either, we'll assume they were either starting to rotate the camera or touching the screen to clear their piece selection. 
+        // Either way, clear their piece selection and begin rotation
+        ClearActivePiece();
+        currTouchAction = TouchAction.RotatingCamera;
+        prevFrameFirstTouchPosition = touch.position;
+    }
+
+    private void handleOneTouchMove(Touch touch){
+        if(currTouchAction != TouchAction.RotatingCamera){
+            return;
+        }
+
+        mainCamera.gameObject.transform.RotateAround(camRotationCenter.transform.position, camAxisOfHorizRotation, (touch.position - prevFrameFirstTouchPosition).x * rotationDegreesPerPixel);
+        camAxisOfVertRotation = mainCamera.transform.right;
+        mainCamera.gameObject.transform.RotateAround(camRotationCenter.transform.position, camAxisOfVertRotation, (prevFrameFirstTouchPosition - touch.position).y * rotationDegreesPerPixel);
+        if(mainCamera.transform.up.y < 0){ // the "top" of the camera is starting to point at all downwards, which we don't want to allow
+            // undo the vertical rotation
+            mainCamera.gameObject.transform.RotateAround(camRotationCenter.transform.position, camAxisOfVertRotation, (touch.position - prevFrameFirstTouchPosition).y * rotationDegreesPerPixel);
+        }
+        prevFrameFirstTouchPosition = touch.position;
+    }
+
+    private void handleSecondTouchBegin(Touch firstTouch, Touch secondTouch){
+        if(currTouchAction == TouchAction.MovingPiece){
+            return;
+        }
+
+        currTouchAction = TouchAction.ZoomingAndPanningCamera;
+        prevFrameFirstTouchPosition = firstTouch.position;
+        prevFrameSecondTouchPosition = secondTouch.position;
+    }
+    
+    private void handleTwoTouchMove(Touch firstTouch, Touch secondTouch){
+        if(currTouchAction != TouchAction.ZoomingAndPanningCamera){
+            return;
+        }
+
+        // zooming
+        float prevTouchDistance = Vector2.Distance(prevFrameFirstTouchPosition, prevFrameSecondTouchPosition);
+        float currTouchDistance = Vector2.Distance(firstTouch.position, secondTouch.position);
+        mainCamera.gameObject.transform.Translate(mainCamera.transform.forward * (currTouchDistance - prevTouchDistance) * zoomDistPerPixel, Space.World);
+        
+        // panning
+        Vector2 prevAvgTouchPosition = (prevFrameFirstTouchPosition + prevFrameSecondTouchPosition) / 2;
+        Vector2 newAvgTouchPosition = (firstTouch.position + secondTouch.position) / 2;
+        Vector3 horizComponent = mainCamera.transform.right * (prevAvgTouchPosition - newAvgTouchPosition).x;
+        Vector3 vertComponent = mainCamera.transform.up * (prevAvgTouchPosition - newAvgTouchPosition).y;
+        Vector3 totalScaledTranslation = (horizComponent + vertComponent) * panDistPerPixel;
+        mainCamera.gameObject.transform.Translate(totalScaledTranslation, Space.World);
+        camRotationCenter.transform.Translate(totalScaledTranslation, Space.World);
+
+        // update instance variables
+        prevFrameFirstTouchPosition = firstTouch.position;
+        prevFrameSecondTouchPosition = secondTouch.position;
+    }
+
+    // casts a ray in the direction of touch and returns the machine piece that is hit, if one is hit
+    private GameObject getSignificant3DObjectHit(Touch touch){
+        Vector3 touchFarWorldCoords = mainCamera.ScreenToWorldPoint(new Vector3(touch.position.x, touch.position.y, mainCamera.farClipPlane));
+        RaycastHit hit3D;
+        bool hitSignificant3DObject = false; // true for machine pieces but false for the workspace, for example
+        GameObject hitObject = null;
+        // Debug.DrawRay(transform.position, touchFarWorldCoords, Color.white); // now that this script isn't attached to the camera, transform.position would need to be updated
+        if(Physics.Raycast(mainCamera.gameObject.transform.position, touchFarWorldCoords - mainCamera.gameObject.transform.position, out hit3D)){
+            hitObject = hit3D.collider.gameObject;
+            hitSignificant3DObject = true;
+            while(hitObject.GetComponent<PiecePrefabBehaviour>() == null){ // this loop works up the hierarchy looking for an object with a PiecePrefabBehaviour, for example in the case of compound colliders
+                if(hitObject.transform.parent){
+                    hitObject = hitObject.transform.parent.gameObject; // so now we'll check if the parent object has a PiecePrefabBehaviour
+                }else{ // for example we had hit the workspace, which has a collider but no ancestors with a PiecePrefabBehaviour
+                    hitSignificant3DObject = false;
+                    break;
+                }
+            }
+        }
+        if(hitSignificant3DObject){
+            return hitObject;
+        }
+        return null;
+    }
+
+    // cast a ray towards the canvas in the direction of touch and return a boolean representing whether or not a GameObject on the canvas was hit
+    private bool hitCanvasElement(Touch touch){
+        PointerEventData touchEventData = new PointerEventData(eventSystem);
+        touchEventData.position = touch.position;
+        List<RaycastResult> graphicsResults = new List<RaycastResult>(); // an out-parameter-like list, it seems
+        graphicRaycaster.Raycast(touchEventData, graphicsResults);
+        return graphicsResults.Count > 0;
     }
 
     // this method removes the active piece's halo (if there is an active piece), changes its colliders to triggers, sets the activePiece variable to null, and changes the state of canvas objects

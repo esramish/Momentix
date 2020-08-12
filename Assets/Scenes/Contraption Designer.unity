@@ -1055,7 +1055,7 @@ GameObject:
   - component: {fileID: 318943312}
   - component: {fileID: 318943316}
   - component: {fileID: 318943317}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: In Front Wall
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1622,6 +1622,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e2549e06b0a5248b197d71851c1b0fbe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  camRotationCenter: {fileID: 2002492911}
+  camAxisOfHorizRotation: {x: 0, y: 0, z: 0}
+  camAxisOfVertRotation: {x: 0, y: 0, z: 0}
   pieces: []
   piecesRemovedWhileResettable: []
   piecesScrollView: {fileID: 822909710}
@@ -2602,6 +2605,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mainScriptObject: {fileID: 415328358}
+  camRotationCenter: {fileID: 2002492911}
 --- !u!1 &835633068
 GameObject:
   m_ObjectHideFlags: 0
@@ -3470,7 +3474,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 926289854}
   m_HandleRect: {fileID: 926289853}
   m_Direction: 2
-  m_Value: 1
+  m_Value: 0.9999993
   m_Size: 0.8926551
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -3522,7 +3526,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1169939248}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Workspace Boundaries
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3656,7 +3660,7 @@ GameObject:
   - component: {fileID: 1298665874}
   - component: {fileID: 1298665878}
   - component: {fileID: 1298665879}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Behind Wall
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3780,7 +3784,7 @@ GameObject:
   - component: {fileID: 1317314950}
   - component: {fileID: 1317314954}
   - component: {fileID: 1317314955}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Right Wall
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3971,8 +3975,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1806974719}
   m_HandleRect: {fileID: 1806974718}
   m_Direction: 0
-  m_Value: -0.00000010707351
-  m_Size: 0.5621989
+  m_Value: 0
+  m_Size: 0.5621988
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -4028,7 +4032,7 @@ GameObject:
   - component: {fileID: 1337955465}
   - component: {fileID: 1337955469}
   - component: {fileID: 1337955470}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Left Wall
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5485,6 +5489,37 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mainScriptObject: {fileID: 415328358}
+  camRotationCenter: {fileID: 2002492911}
+--- !u!1 &2002492911
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2002492912}
+  m_Layer: 0
+  m_Name: Camera Rotation Center
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2002492912
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2002492911}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 7
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2005726456
 GameObject:
   m_ObjectHideFlags: 0
