@@ -12,6 +12,7 @@ public class CameraRotateLeftButtonBehaviour : MonoBehaviour, IPointerDownHandle
 
     public GameObject mainScriptObject; // connected in editor
     private RaycastingBehaviour raycastingScript;
+    public GameObject camRotationCenter; // connected in editor
 
     // Start is called before the first frame update
     void Start()
@@ -23,7 +24,7 @@ public class CameraRotateLeftButtonBehaviour : MonoBehaviour, IPointerDownHandle
     // Update is called once per frame
     void Update()
     {
-        Camera.main.gameObject.transform.RotateAround(raycastingScript.camPointOfRotation, raycastingScript.camAxisOfHorizRotation, camRotationDirection * DEGREES_PER_SECOND * Time.deltaTime);
+        Camera.main.gameObject.transform.RotateAround(camRotationCenter.transform.position, raycastingScript.camAxisOfHorizRotation, camRotationDirection * DEGREES_PER_SECOND * Time.deltaTime);
     }
 
     public void OnPointerDown(PointerEventData data){

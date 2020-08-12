@@ -19,12 +19,14 @@ public class RaycastingBehaviour : MonoBehaviour
 
     private TouchAction currTouchAction;
     
-    public Vector3 camPointOfRotation;
+    public GameObject camRotationCenter; // connected in editor
     public Vector3 camAxisOfHorizRotation;
     public Vector3 camAxisOfVertRotation;
     private float rotationDegreesPerPixel; // how many degrees the camera rotates when user's finger moves one pixel across the screen
 
     private float zoomDistPerPixel; // how far forward the camera moves when one of the user's fingers moves one pixel further on the screen from their other finger
+
+    private float panDistPerPixel; // how far vertically/horizontally the camera moves when the average position of the user's two fingers changes one pixel vertically/horizontally on the screen
 
     public List<GameObject> pieces; // used in other classes
     public List<GameObject> piecesRemovedWhileResettable; // used in other classes
@@ -58,12 +60,13 @@ public class RaycastingBehaviour : MonoBehaviour
         mainCamera = Camera.main;
         currTouchAction = TouchAction.None;
         
-        camPointOfRotation = Vector3.zero;
         camAxisOfHorizRotation = Vector3.up;
         camAxisOfVertRotation = Vector3.right;
         rotationDegreesPerPixel = 0.1F;
         
         zoomDistPerPixel = 0.01F;
+
+        panDistPerPixel = 0.01F;
         
         pieces = new List<GameObject>();
         piecesRemovedWhileResettable = new List<GameObject>();
@@ -137,12 +140,12 @@ public class RaycastingBehaviour : MonoBehaviour
             return;
         }
 
-        mainCamera.gameObject.transform.RotateAround(camPointOfRotation, camAxisOfHorizRotation, (touch.position - prevFrameFirstTouchPosition).x * rotationDegreesPerPixel);
+        mainCamera.gameObject.transform.RotateAround(camRotationCenter.transform.position, camAxisOfHorizRotation, (touch.position - prevFrameFirstTouchPosition).x * rotationDegreesPerPixel);
         camAxisOfVertRotation = mainCamera.transform.right;
-        mainCamera.gameObject.transform.RotateAround(camPointOfRotation, camAxisOfVertRotation, (prevFrameFirstTouchPosition - touch.position).y * rotationDegreesPerPixel);
+        mainCamera.gameObject.transform.RotateAround(camRotationCenter.transform.position, camAxisOfVertRotation, (prevFrameFirstTouchPosition - touch.position).y * rotationDegreesPerPixel);
         if(mainCamera.transform.up.y < 0){ // the "top" of the camera is starting to point at all downwards, which we don't want to allow
             // undo the vertical rotation
-            mainCamera.gameObject.transform.RotateAround(camPointOfRotation, camAxisOfVertRotation, (touch.position - prevFrameFirstTouchPosition).y * rotationDegreesPerPixel);
+            mainCamera.gameObject.transform.RotateAround(camRotationCenter.transform.position, camAxisOfVertRotation, (touch.position - prevFrameFirstTouchPosition).y * rotationDegreesPerPixel);
         }
         prevFrameFirstTouchPosition = touch.position;
     }
@@ -168,8 +171,13 @@ public class RaycastingBehaviour : MonoBehaviour
         mainCamera.gameObject.transform.Translate(mainCamera.transform.forward * (currTouchDistance - prevTouchDistance) * zoomDistPerPixel, Space.World);
         
         // panning
-        // Vector2 prevAvgTouchPosition = (prevFrameFirstTouchPosition + prevFrameSecondTouchPosition) / 2;
-        // Vector2 newAvgTouchPosition = (firstTouch + secondTouch) / 2;
+        Vector2 prevAvgTouchPosition = (prevFrameFirstTouchPosition + prevFrameSecondTouchPosition) / 2;
+        Vector2 newAvgTouchPosition = (firstTouch.position + secondTouch.position) / 2;
+        Vector3 horizComponent = mainCamera.transform.right * (prevAvgTouchPosition - newAvgTouchPosition).x;
+        Vector3 vertComponent = mainCamera.transform.up * (prevAvgTouchPosition - newAvgTouchPosition).y;
+        Vector3 totalScaledTranslation = (horizComponent + vertComponent) * panDistPerPixel;
+        mainCamera.gameObject.transform.Translate(totalScaledTranslation, Space.World);
+        camRotationCenter.transform.Translate(totalScaledTranslation, Space.World);
 
         // update instance variables
         prevFrameFirstTouchPosition = firstTouch.position;
